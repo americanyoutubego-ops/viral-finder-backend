@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException
 from core.api_client import YouTubeClient
 from core.scoring import build_rows, add_scores, top_keywords
 from core.query_gen import generate as gen_queries
+from core.ai_query_gen import generate_ai
 
 from .schemas import (
     SearchRequest, SearchResponse, VideoResult,
@@ -88,7 +89,15 @@ def search_videos(req: SearchRequest):
 
 @router.post("/generate-queries", response_model=GenerateResponse)
 def generate_queries(req: GenerateRequest):
-    """Генератор пошукових запитів за шаблонами."""
+    """Генератор запитів. Спершу пробує AI (Gemini), якщо не вийшло — шаблони."""
+    try:
+        queries = generate_ai(req.keyword, req.count, req.language)
+        if queries:
+            return GenerateResponse(queries=queries)
+    except Exception as e:
+        print(f"AI generation failed, fallback to templates: {e}")
+
+    # Запасний варіант — шаблонний генератор
     queries = gen_queries(req.keyword, req.count, req.language)
     return GenerateResponse(queries=queries)
 
